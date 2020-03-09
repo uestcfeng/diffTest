@@ -1,0 +1,240 @@
+<!--
+ * @Author: your name
+ * @Date: 2020-03-07 23:20:07
+ * @LastEditTime: 2020-03-08 13:40:46
+ * @LastEditors: Please set LastEditors
+ * @Description: In User Settings Edit
+ * @FilePath: \excelTest\diff.html
+ -->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+    <script>
+        function sameVnode(a, b) {
+            return a.key === b.key && a.tag === b.tag
+        }
+        function isUndef(v) {
+            return v === undefined || v === null
+        }
+
+        function isDef(v) {
+            return v !== undefined && v !== null
+        }
+
+        const api = {
+            insertBefore(vnode, before) {
+                if (typeof before !== 'string') {
+                    before = before === null ? '' : `${before.tag}_${before.key}`
+                }
+                console.log(`Operate: ${vnode.tag}_${vnode.key}  insertBefore  ${before}`)
+            },
+            nextSibling(vnode) {
+                return `${vnode.tag}_${vnode.key}.nextSibling`
+            },
+            setTextContent(vnode, text) {
+                console.log(`Operate: set ${vnode.tag}_${vnode.key} text: ${text}`)
+            },
+            updateAttes(oldVnode, vnode) {
+                
+            }
+        }
+        function createElm(vnode) {
+            const children = vnode.children;
+            const tag = vnode.tag;
+            if (tag === '!') {
+                console.log(`createComment：${vnode.text}`)
+            } else if (tag !== undefined) {
+                if (children.length) {
+                    for (i = 0; i < children.length; ++i) {
+                        const ch = children[i];
+                        if (ch != null) {
+                            createElm(ch)
+                            console.log(`createElement: ${vnode.tag}_${vnode.key}`)
+                        }
+                    }
+                }
+            } else {
+                console.log(`createTextNode: ${vnode.text}`)
+            }
+        }
+        function removeVnodes(vnodes, startIdx, endIdx) {
+            for (; startIdx <= endIdx; ++startIdx) {
+                const ch = vnodes[startIdx];
+                if (ch != null) {
+                    if (isDef(ch.tag)) {
+                        console.log(`removeNode: ${ch.tag}_${ch.key}`)
+                    } else {
+                        console.log(`removeNode: ${ch.text}`)
+                    }
+                }
+            }
+        }
+        function addVnodes(before, vnodes, startIdx, endIdx) {
+            for (; startIdx <= endIdx; ++startIdx) {
+                const ch = vnodes[startIdx];
+                if (ch != null) {
+                    api.insertBefore(ch, before);
+                }
+            }
+        }
+        function patch(oldVnode, vnode) {
+            // 节点相同，使用 patchVnode 更新
+            if (sameVnode(oldVnode, vnode)) {
+                patchVnode(oldVnode, vnode);
+                // 节点不同，创建新的 dom 节点并插入文档，移除 oldVnode
+            } else {
+                api.insertBefore(vnode, api.nextSibling(oldVnode));
+                removeVnodes([oldVnode], 0, 0);
+            }
+            return vnode;
+        }
+        function patchVnode(oldVnode, vnode) {
+            let oldCh = oldVnode.children;
+            let ch = vnode.children;
+            // oldVnode和vnode相等时直接返回
+            if (oldVnode === vnode) return;
+            // data属性的更新 
+            if (vnode.attrs !== undefined) {
+                api.updateAttes(oldVnode, vnode);
+            }
+
+            // vnode 不是文本节点，更新子节点或插入子节点或移除 oldVnode 的子节点或文本
+            if (isUndef(vnode.text)) {
+                if (isDef(oldCh) && isDef(ch)) {
+                    if (oldCh !== ch) updateChildren(oldCh, ch);
+                } else if (isDef(ch)) {
+                    if (isDef(oldVnode.text)) api.setTextContent(oldVnode, '');
+                    addVnodes(null, ch, 0, ch.length - 1);
+                } else if (isDef(oldCh)) {
+                    removeVnodes(oldCh, 0, oldCh.length - 1);
+                } else if (isDef(oldVnode.text)) {
+                    api.setTextContent(oldVnode, '');
+                }
+                // vnode 是文本节点，移除 oldVnode 的子节点，并设置 vnode 节点的文本内容
+            } else if (oldVnode.text !== vnode.text) {
+                if (isDef(oldCh)) {
+                    removeVnodes(elm, oldCh, 0, oldCh.length - 1);
+                }
+                api.setTextContent(elm, vnode.text);
+            }
+        }
+        function createKeyToOldIdx(children, beginIdx, endIdx) {
+            let i, key
+            const map = {}
+            for (i = beginIdx; i <= endIdx; ++i) {
+                key = children[i].key
+                if (isDef(key)) map[key] = i
+            }
+            return map
+        }
+        function updateChildren(oldCh, newCh) {
+            let oldStartIdx = 0
+            let newStartIdx = 0
+            let oldEndIdx = oldCh.length - 1
+            let oldStartVnode = oldCh[0]
+            let oldEndVnode = oldCh[oldEndIdx]
+            let newEndIdx = newCh.length - 1
+            let newStartVnode = newCh[0]
+            let newEndVnode = newCh[newEndIdx]
+            let oldKeyToIdx
+            let idxInOld
+            while (oldStartIdx <= oldEndIdx && newStartIdx <= newEndIdx) {
+                if (isUndef(oldStartVnode)) {
+                    oldStartVnode = oldCh[++oldStartIdx]
+                }
+                else if (isUndef(oldEndVnode)) {
+                    oldEndVnode = oldCh[--oldEndIdx]
+                }
+                // 头头对比
+                else if (sameVnode(oldStartVnode, newStartVnode)) {
+                    patchVnode(oldStartVnode, newStartVnode)
+                    oldStartVnode = oldCh[++oldStartIdx]
+                    newStartVnode = newCh[++newStartIdx]
+                }
+                // 尾尾对比
+                else if (sameVnode(oldEndVnode, newEndVnode)) {
+                    patchVnode(oldEndVnode, newEndVnode)
+                    oldEndVnode = oldCh[--oldEndIdx]
+                    newEndVnode = newCh[--newEndIdx]
+                }
+                // 旧头与新尾对比
+                else if (sameVnode(oldStartVnode, newEndVnode)) {
+                    patchVnode(oldStartVnode, newEndVnode)
+                    api.insertBefore(oldStartVnode, api.nextSibling(oldEndVnode))
+                    oldStartVnode = oldCh[++oldStartIdx]
+                    newEndVnode = newCh[--newEndIdx]
+                }
+                // 旧尾与新头对比
+                else if (sameVnode(oldEndVnode, newStartVnode)) {
+                    patchVnode(oldEndVnode, newStartVnode)
+                    api.insertBefore(oldEndVnode, oldStartVnode)
+                    oldEndVnode = oldCh[--oldEndIdx]
+                    newStartVnode = newCh[++newStartIdx]
+                }
+                // 利用key对比
+                else {
+                    if (oldKeyToIdx === undefined) {
+                        oldKeyToIdx = createKeyToOldIdx(oldCh, oldStartIdx, oldEndIdx)
+                    }
+                    idxInOld = oldKeyToIdx[newStartVnode.key]
+                    if (isUndef(idxInOld)) {
+                        createElm(newStartVnode)
+                        api.insertBefore(newStartVnode, oldStartVnode)
+                    } else {
+                        let vnodeToMove = oldCh[idxInOld]
+                        if (sameVnode(vnodeToMove, newStartVnode)) {
+                            patchVnode(vnodeToMove, newStartVnode)
+                            oldCh[idxInOld] = undefined
+                            api.insertBefore(vnodeToMove, oldStartVnode)
+                        } else {
+                            createElm(newStartVnode)
+                            api.insertBefore(vnodeToMove, oldStartVnode)
+                        }
+                    }
+                    newStartVnode = newCh[++newStartIdx]
+                }
+            }
+            if (oldStartIdx <= oldEndIdx || newStartIdx <= newEndIdx) {
+                if (oldStartIdx > oldEndIdx) {
+                    before = newCh[newEndIdx + 1] == null ? null : newCh[newEndIdx + 1];
+                    addVnodes(before, newCh, newStartIdx, newEndIdx);
+                } else {
+                    removeVnodes(oldCh, oldStartIdx, oldEndIdx);
+                }
+            }
+        }
+
+        var oldVnode = {
+            tag: 'ul',
+            key: '1',
+            children: [
+                { tag: 'li',key: 'B',children: [{ key: 'text_b',text: 'B', }]},
+                { tag: 'li',key: 'D',children: [{ key: 'text_d',text: 'D', }]},
+                { tag: 'li',key: 'C',children: [{ key: 'text_c',text: 'C', }]},
+                { tag: 'li',key: 'F',children: [{ key: 'text_f',text: 'F', }]},
+                { tag: 'li',key: 'A',children: [{ key: 'text_a',text: 'A', }]}
+            ]
+        }
+        var newVnode = {
+            tag: 'ul',
+            key: '1',
+            children: [
+                { tag: 'li',key: 'D',children: [{ key: 'text_d',text: 'D', }]},
+                { tag: 'li',key: 'B',children: [{ key: 'text_b',text: 'B', }]},
+                { tag: 'li',key: 'E',children: [{ key: 'text_e',text: 'E', }]},
+                { tag: 'li',key: 'C',children: [{ key: 'text_c',text: 'C', }]},
+                { tag: 'li',key: 'A',children: [{ key: 'text_a',text: 'A', }]}
+            ]
+        }
+        patch(oldVnode, newVnode)
+    </script>
+</body>
+
+</html>
